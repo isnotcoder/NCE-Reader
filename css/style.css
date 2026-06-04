@@ -378,6 +378,8 @@ body.dark-theme .moon-icon {
 
 .player-section {
   background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   height: 100%;
   min-height: 0;
@@ -499,6 +501,69 @@ body.dark-theme .book-info {
   background: rgba(120, 110, 100, 0.1);
   border: 1px solid rgba(120, 110, 100, 0.14);
   white-space: nowrap;
+}
+
+.unit-read-count-btn {
+  margin-left: auto;
+  min-width: 44px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--accent-1);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 6px 14px rgba(224, 78, 57, 0.35);
+  flex-shrink: 0;
+}
+
+.unit-read-count-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 20px rgba(224, 78, 57, 0.5);
+}
+
+.unit-read-count-btn:active {
+  transform: scale(0.95);
+}
+
+.read-count-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.count-dec-btn,
+.count-reset-btn {
+  min-width: 36px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--paper-3);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.count-dec-btn:hover,
+.count-reset-btn:hover {
+  transform: translateY(-1px);
+  background: var(--accent-3);
+  border-color: var(--accent-1);
+}
+
+.count-dec-btn:active,
+.count-reset-btn:active {
+  transform: scale(0.95);
 }
 
 .control-panel {
@@ -806,17 +871,17 @@ body.dark-theme .control-panel {
 .progress-fill {
   position: absolute;
   inset: 0;
-  width: var(--progress);
+  width: var(--progress, 0%);
   background: linear-gradient(90deg, var(--accent-1) 0%, var(--accent-2) 100%);
   border-radius: inherit;
-  transition: width 0.1s ease;
+  transition: width 0.25s ease-out;
   pointer-events: none;
 }
 
 .progress-handle {
   position: absolute;
   top: 50%;
-  left: var(--progress);
+  left: var(--progress, 0%);
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -825,7 +890,7 @@ body.dark-theme .control-panel {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
   transform: translate(-50%, -50%) scale(0.8);
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease, left 0.25s ease-out;
   pointer-events: none;
 }
 
@@ -1055,6 +1120,64 @@ body.blur-translation .lyric-line:hover .lyric-text {
   opacity: 0.86;
 }
 
+.unit-read-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--accent-3);
+  border: 1px solid var(--accent-strong);
+  color: var(--accent-1);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.unit-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.unit-item-header h3 {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.unit-read-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  border: 1px solid var(--border);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.unit-item.active .unit-read-count {
+  border-color: var(--accent-strong);
+  color: var(--accent-1);
+  background: var(--accent-3);
+}
 .like-and-support {
   font-size: 12px;
   color: var(--ink-2);

@@ -10,6 +10,20 @@ const PLAY_MODE_STORAGE_KEY = 'playMode';
 const BOOK_SELECTION_STORAGE_KEY = 'selectedBookKey';
 const LOOP_PLAYBACK_STORAGE_KEY = 'loopPlaybackEnabled';
 
+// 内嵌课本数据，支持 file:// 协议直接打开
+const EMBEDDED_BOOKS_DATA = {
+  books: [
+    { key: "NCE1", title: "NCE1 English Book", bookPath: "https://nce.mleo.site/NCE1" },
+    { key: "NCE2", title: "NCE2 English Book", bookPath: "https://nce.mleo.site/NCE2" },
+    { key: "NCE3", title: "NCE3 English Book", bookPath: "https://nce.mleo.site/NCE3" },
+    { key: "NCE4", title: "NCE4 English Book", bookPath: "https://nce.mleo.site/NCE4" },
+    { key: "NCE1(85)", title: "NCE1 English Book(85)", bookPath: "https://85.mleo.site/NCE1" },
+    { key: "NCE2(85)", title: "NCE2 English Book(85)", bookPath: "https://85.mleo.site/NCE2" },
+    { key: "NCE3(85)", title: "NCE3 English Book(85)", bookPath: "https://85.mleo.site/NCE3" },
+    { key: "NCE4(85)", title: "NCE4 English Book(85)", bookPath: "https://85.mleo.site/NCE4" }
+  ]
+};
+
 const qs = (selector, root = document) => root.querySelector(selector);
 const qsa = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -85,8 +99,14 @@ class ReadingSystem {
   async loadBooks() {
     if (this.state.books.length) return this.state.books;
     try {
-      const response = await fetch('data.json');
-      const data = await response.json();
+      // 先尝试 fetch（服务器模式），失败则使用内嵌数据（本地文件模式）
+      let data;
+      try {
+        const response = await fetch('data.json');
+        data = await response.json();
+      } catch {
+        data = EMBEDDED_BOOKS_DATA;
+      }
       this.state.books = Array.isArray(data.books) ? data.books : [];
     } catch (error) {
       console.error('加载课本数据失败:', error);
@@ -167,7 +187,9 @@ class ReadingSystem {
 
     try {
       const response = await fetch(`${this.state.bookPath}/book.json`);
-      const data = await response.json();
+      const buffer = await response.arrayBuffer();
+      const text = new TextDecoder('utf-8').decode(buffer);
+      const data = JSON.parse(text);
 
       this.state.units = data.units.map((unit, index) => ({
         ...unit,
@@ -178,7 +200,7 @@ class ReadingSystem {
       }));
 
       if (this.dom.bookName) {
-        this.dom.bookName.textContent = `《${data.bookName}》`;
+        this.dom.bookName.textContent = '《NCE》';
       }
       if (this.dom.bookLevel) {
         this.dom.bookLevel.textContent = `${data.bookLevel}`;
@@ -263,7 +285,8 @@ class ReadingSystem {
       let lrcText = this.lrcCache.get(unit.lrc);
       if (!lrcText) {
         const response = await fetch(unit.lrc);
-        lrcText = await response.text();
+        const lrcBuffer = await response.arrayBuffer();
+        lrcText = new TextDecoder('utf-8').decode(lrcBuffer);
         this.lrcCache.set(unit.lrc, lrcText);
       }
       this.state.currentLyrics = LRCParser.parse(lrcText);
@@ -284,6 +307,7 @@ class ReadingSystem {
 
     this.loadPlayTime();
     this.loadSavedSpeed();
+    this.updateReadCountDisplay();
     this.prefetchUnit(unitIndex + 1);
   }
 
@@ -625,7 +649,8 @@ class ReadingSystem {
 
     if (unit.lrc && !this.lrcCache.has(unit.lrc)) {
       fetch(unit.lrc)
-        .then((response) => response.text())
+        .then((response) => response.arrayBuffer())
+        .then((buf) => new TextDecoder('utf-8').decode(buf))
         .then((text) => this.lrcCache.set(unit.lrc, text))
         .catch(() => {});
     }
@@ -654,6 +679,7 @@ class ReadingSystem {
     this.bindLyrics();
     this.bindPlayerControls();
     this.bindNavigation();
+    this.bindReadCountClick();
     this.bindTranslationToggle();
 
     window.addEventListener('hashchange', () => {
@@ -775,7 +801,6 @@ class ReadingSystem {
       !this.dom.speedBtn ||
       !this.dom.progressBar ||
       !this.dom.audioPlayer ||
-      !this.dom.playModeBtn ||
       !this.dom.loopToggleBtn
     ) {
       return;
@@ -836,9 +861,11 @@ class ReadingSystem {
       this.dom.progressBar.classList.remove('dragging');
     });
 
-    this.dom.playModeBtn.addEventListener('click', () => {
-      this.togglePlayMode();
-    });
+    if (this.dom.playModeBtn) {
+      this.dom.playModeBtn.addEventListener('click', () => {
+        this.togglePlayMode();
+      });
+    }
 
     this.dom.audioPlayer.addEventListener('timeupdate', () => {
       this.checkSinglePlayEnd();
@@ -889,6 +916,74 @@ class ReadingSystem {
         this.loadNextUnit();
       });
     }
+  }
+
+  bindReadCountClick() {
+    const incBtn = qs('#unitReadCountBadge');
+    if (incBtn) {
+      incBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.incrementUnitReadCount();
+      });
+    }
+    const decBtn = qs('#countDecBtn');
+    if (decBtn) {
+      decBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.decrementUnitReadCount();
+      });
+    }
+    const resetBtn = qs('#countResetBtn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.resetUnitReadCount();
+      });
+    }
+  }
+
+  getUnitReadCountKey() {
+    if (!this.state.bookPath || this.state.currentUnitIndex === -1) return null;
+    return `${this.state.bookPath}/${this.state.currentUnitIndex}/readCount`;
+  }
+
+  getUnitReadCount() {
+    const key = this.getUnitReadCountKey();
+    if (!key) return 0;
+    const stored = localStorage.getItem(key);
+    const parsed = parseInt(stored);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  }
+
+  setUnitReadCount(count) {
+    const key = this.getUnitReadCountKey();
+    if (!key) return;
+    localStorage.setItem(key, Math.max(0, count));
+    this.updateReadCountDisplay();
+  }
+
+  updateReadCountDisplay() {
+    const count = this.getUnitReadCount();
+    const badge = qs('#unitReadCountBadge');
+    if (badge) {
+      badge.textContent = count;
+    }
+  }
+
+  incrementUnitReadCount() {
+    const current = this.getUnitReadCount();
+    this.setUnitReadCount(current + 1);
+  }
+
+  decrementUnitReadCount() {
+    const current = this.getUnitReadCount();
+    if (current > 0) {
+      this.setUnitReadCount(current - 1);
+    }
+  }
+
+  resetUnitReadCount() {
+    this.setUnitReadCount(0);
   }
 }
 
